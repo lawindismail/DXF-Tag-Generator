@@ -3,7 +3,7 @@ use regex::Regex;
 use ttf_parser::{Face, OutlineBuilder};
 use lyon_geom::{QuadraticBezierSegment, CubicBezierSegment, Point, point};
 use dxf::entities::*;
-use dxf::{Drawing, Point as DxfPoint, LwPolylineVertex};
+use dxf::{Drawing, Point as DxfPoint};
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -113,19 +113,18 @@ pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8], dxf_versio
     };
     
     // Tag outline (50x25)
-    let tag_outline = vec![
-        LwPolylineVertex { x: 0.0, y: 0.0, ..Default::default() },
-        LwPolylineVertex { x: 50.0, y: 0.0, ..Default::default() },
-        LwPolylineVertex { x: 50.0, y: 25.0, ..Default::default() },
-        LwPolylineVertex { x: 0.0, y: 25.0, ..Default::default() },
+    let outline_points = vec![
+        (0.0, 0.0), (50.0, 0.0), (50.0, 25.0), (0.0, 25.0), (0.0, 0.0)
     ];
-    let mut outline_entity = Entity::new(EntityType::LwPolyline(LwPolyline {
-        vertices: tag_outline,
-        flags: 1,
-        ..Default::default()
-    }));
-    outline_entity.common.layer = "0".to_string();
-    drawing.add_entity(outline_entity);
+    for i in 0..4 {
+        let mut line = Entity::new(EntityType::Line(Line {
+            p1: DxfPoint::new(outline_points[i].0, outline_points[i].1, 0.0),
+            p2: DxfPoint::new(outline_points[i+1].0, outline_points[i+1].1, 0.0),
+            ..Default::default()
+        }));
+        line.common.layer = "0".to_string();
+        drawing.add_entity(line);
+    }
     
     // Hole at (8, 12.5) with radius 2.5
     let mut circle_entity = Entity::new(EntityType::Circle(Circle {
@@ -158,18 +157,21 @@ pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8], dxf_versio
                 }
                 for poly in builder.polygons {
                     if poly.len() < 2 { continue; }
-                    let vertices: Vec<LwPolylineVertex> = poly.iter().map(|(x, y)| LwPolylineVertex {
-                        x: *x,
-                        y: *y,
-                        ..Default::default()
-                    }).collect();
-                    let mut text_poly = Entity::new(EntityType::LwPolyline(LwPolyline {
-                        vertices,
-                        flags: 1,
-                        ..Default::default()
-                    }));
-                    text_poly.common.layer = "0".to_string();
-                    drawing.add_entity(text_poly);
+                    
+                    let mut points = poly.clone();
+                    if points.first() != points.last() {
+                        points.push(*points.first().unwrap());
+                    }
+                    
+                    for i in 0..(points.len() - 1) {
+                        let mut line = Entity::new(EntityType::Line(Line {
+                            p1: DxfPoint::new(points[i].0, points[i].1, 0.0),
+                            p2: DxfPoint::new(points[i+1].0, points[i+1].1, 0.0),
+                            ..Default::default()
+                        }));
+                        line.common.layer = "0".to_string();
+                        drawing.add_entity(line);
+                    }
                 }
             }
             if let Some(advance) = face.glyph_hor_advance(glyph_id) {
