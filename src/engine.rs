@@ -17,7 +17,7 @@ pub struct PartInfo {
 pub fn parse_pdf(bytes: &[u8]) -> Result<Vec<PartInfo>, String> {
     let text = pdf_extract::extract_text_from_mem(bytes).map_err(|e| e.to_string())?;
     let mut parts = Vec::new();
-    let re = Regex::new(r"(?i)\b\d{5}-P\d{2}-[A-Z]{3}-(\d{3})-R\d\b").unwrap();
+    let re = Regex::new(r"(?i)\b\d{5}-P\d{2}-[A-Z]{3}-(\d{3})(?:-R\d)?\b").unwrap();
     
     for line in text.lines() {
         if let Some(caps) = re.captures(line) {
