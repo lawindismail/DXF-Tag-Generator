@@ -100,16 +100,91 @@ impl OutlineBuilder for GlyphBuilder {
 
 pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8], dxf_version: &str, export_binary: bool) -> Result<(), String> {
     let face = Face::parse(font_data, 0).map_err(|_| "Failed to parse font")?;
+    
+    // If AutoCAD R12 is selected, we write a minimal, clean ASCII DXF manually.
+    // This completely bypasses the dxf-rs library, avoiding issues like duplicate handles,
+    // extra metadata, or group code formatting spaces that break primitive CNC/nesting software.
+    if dxf_version == "R12" {
+        use std::fs::File;
+        use std::io::Write;
+        
+        let mut file = File::create(output_path).map_err(|e| e.to_string())?;
+        
+        // Start of Entities section
+        writeln!(file, "  0\nSECTION\n  2\nENTITIES").map_err(|e| e.to_string())?;
+        
+        // Tag outline (50x25)
+        let outline_points = vec![
+            (0.0, 0.0), (50.0, 0.0), (50.0, 25.0), (0.0, 25.0), (0.0, 0.0)
+        ];
+        for i in 0..4 {
+            writeln!(file, "  0\nLINE\n  8\n0").map_err(|e| e.to_string())?;
+            writeln!(file, " 10\n{:.4}\n 20\n{:.4}\n 30\n0.0", outline_points[i].0, outline_points[i].1).map_err(|e| e.to_string())?;
+            writeln!(file, " 11\n{:.4}\n 21\n{:.4}\n 31\n0.0", outline_points[i+1].0, outline_points[i+1].1).map_err(|e| e.to_string())?;
+        }
+        
+        // Hole at (8, 12.5) with radius 2.5
+        writeln!(file, "  0\nCIRCLE\n  8\n0").map_err(|e| e.to_string())?;
+        writeln!(file, " 10\n8.0\n 20\n12.5\n 30\n0.0").map_err(|e| e.to_string())?;
+        writeln!(file, " 40\n2.5").map_err(|e| e.to_string())?;
+        
+        // Text glyph lines
+        let units_per_em = face.units_per_em();
+        let text_size = 10.0;
+        let scale = text_size / units_per_em as f64;
+        
+        let mut offset_x = 20.0;
+        let offset_y = 8.0;
+        
+        for c in text.chars() {
+            if let Some(glyph_id) = face.glyph_index(c) {
+                let mut builder = GlyphBuilder {
+                    polygons: Vec::new(),
+                    current_polygon: Vec::new(),
+                    scale,
+                    offset_x,
+                    offset_y,
+                };
+                if let Some(_bbox) = face.outline_glyph(glyph_id, &mut builder) {
+                    if !builder.current_polygon.is_empty() {
+                        builder.polygons.push(builder.current_polygon);
+                    }
+                    for poly in builder.polygons {
+                        if poly.len() < 2 { continue; }
+                        
+                        let mut points = poly.clone();
+                        if points.first() != points.last() {
+                            points.push(*points.first().unwrap());
+                        }
+                        
+                        for i in 0..(points.len() - 1) {
+                            writeln!(file, "  0\nLINE\n  8\n0").map_err(|e| e.to_string())?;
+                            writeln!(file, " 10\n{:.4}\n 20\n{:.4}\n 30\n0.0", points[i].0, points[i].1).map_err(|e| e.to_string())?;
+                            writeln!(file, " 11\n{:.4}\n 21\n{:.4}\n 31\n0.0", points[i+1].0, points[i+1].1).map_err(|e| e.to_string())?;
+                        }
+                    }
+                }
+                if let Some(advance) = face.glyph_hor_advance(glyph_id) {
+                    offset_x += advance as f64 * scale;
+                }
+            }
+        }
+        
+        writeln!(file, "  0\nENDSEC\n  0\nEOF").map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
     let mut drawing = Drawing::new();
     
     drawing.header.version = match dxf_version {
+        "R12" => dxf::enums::AcadVersion::R12,
         "R14" => dxf::enums::AcadVersion::R14,
         "R2000" => dxf::enums::AcadVersion::R2000,
         "R2004" => dxf::enums::AcadVersion::R2004,
         "R2007" => dxf::enums::AcadVersion::R2007,
         "R2010" => dxf::enums::AcadVersion::R2010,
         "R2013" => dxf::enums::AcadVersion::R2013,
-        _ => dxf::enums::AcadVersion::R2000, // Safe universal fallback
+        _ => dxf::enums::AcadVersion::R12, // Default to R12 as it is the most compatible
     };
     
     // Tag outline (50x25)

@@ -38,8 +38,8 @@ impl Default for TagApp {
             math_val: String::new(),
             last_clicked_index: None,
             drag_is_selecting: None,
-            dxf_version: "R2000".to_string(),
-            binary_dxf: true, // Default to binary DXF based on user feedback
+            dxf_version: "R12".to_string(),
+            binary_dxf: false, // ODA converter and old software prefers ASCII R12 usually
         }
     }
 }
@@ -169,8 +169,9 @@ impl eframe::App for TagApp {
                 egui::ComboBox::from_label("DXF Version")
                     .selected_text(&self.dxf_version)
                     .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.dxf_version, "R12".to_string(), "AutoCAD R12 (Recommended)");
                         ui.selectable_value(&mut self.dxf_version, "R14".to_string(), "AutoCAD R14");
-                        ui.selectable_value(&mut self.dxf_version, "R2000".to_string(), "AutoCAD R2000 (Recommended)");
+                        ui.selectable_value(&mut self.dxf_version, "R2000".to_string(), "AutoCAD R2000");
                         ui.selectable_value(&mut self.dxf_version, "R2004".to_string(), "AutoCAD R2004");
                         ui.selectable_value(&mut self.dxf_version, "R2007".to_string(), "AutoCAD R2007");
                         ui.selectable_value(&mut self.dxf_version, "R2010".to_string(), "AutoCAD R2010");
