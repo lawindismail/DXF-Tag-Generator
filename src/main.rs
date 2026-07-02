@@ -142,6 +142,16 @@ impl eframe::App for TagApp {
             
             ui.add_space(10.0);
             
+            // Handle Ctrl+A
+            if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
+                let q = self.search_query.to_lowercase();
+                for part in &mut self.parts {
+                    if q.is_empty() || part.part_number.to_lowercase().contains(&q) {
+                        part.selected = true;
+                    }
+                }
+            }
+            
             use egui_extras::{TableBuilder, Column};
             
             let modifiers = ctx.input(|i| i.modifiers);
