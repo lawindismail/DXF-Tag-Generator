@@ -1,15 +1,17 @@
+
 [package]
-name = "DXF-Tag-Generator"
+name = "dxf-tag-generator"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-dxf = "0.6.1"
-eframe = "0.35.0"
-egui = "0.35.0"
-egui_extras = "0.35.0"
-lyon_geom = "1.0.19"
+eframe = "0.28.1"
+egui = "0.28.1"
+egui_extras = "0.28.1"
+rfd = "0.14.1"
 pdf-extract = "0.12.0"
-regex = "1.12.4"
-rfd = "0.17.2"
 ttf-parser = "0.25.1"
+lyon_geom = "1.0.19"
+dxf = "0.5.0"
+regex = "1.10.5"
+

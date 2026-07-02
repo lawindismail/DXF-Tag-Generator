@@ -1,6 +1,4 @@
-
-/target
-/Cargo.lock
-*.exe
-*.dxf
+/target/
+**/*.rs.bk
+Cargo.lock
 

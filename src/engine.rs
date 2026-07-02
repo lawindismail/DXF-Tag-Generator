@@ -1,12 +1,10 @@
 
 use regex::Regex;
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
 use ttf_parser::{Face, OutlineBuilder};
-use lyon_geom::{QuadraticBezierSegment, CubicBezierSegment, Point, math::point};
+use lyon_geom::{QuadraticBezierSegment, CubicBezierSegment, Point, point};
 use dxf::entities::*;
-use dxf::{Drawing, Point as DxfPoint};
+use dxf::{Drawing, Point as DxfPoint, LwPolylineVertex};
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct PartInfo {
@@ -72,8 +70,8 @@ impl OutlineBuilder for GlyphBuilder {
             ctrl: point(x1 * self.scale as f32 + self.offset_x as f32, y1 * self.scale as f32 + self.offset_y as f32),
             to: point(x * self.scale as f32 + self.offset_x as f32, y * self.scale as f32 + self.offset_y as f32),
         };
-        bezier.for_each_flattened(0.01, &mut |pt| {
-            self.current_polygon.push((pt.x as f64, pt.y as f64));
+        bezier.for_each_flattened(0.01, &mut |line| {
+            self.current_polygon.push((line.to.x as f64, line.to.y as f64));
         });
     }
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
@@ -84,8 +82,8 @@ impl OutlineBuilder for GlyphBuilder {
             ctrl2: point(x2 * self.scale as f32 + self.offset_x as f32, y2 * self.scale as f32 + self.offset_y as f32),
             to: point(x * self.scale as f32 + self.offset_x as f32, y * self.scale as f32 + self.offset_y as f32),
         };
-        bezier.for_each_flattened(0.01, &mut |pt| {
-            self.current_polygon.push((pt.x as f64, pt.y as f64));
+        bezier.for_each_flattened(0.01, &mut |line| {
+            self.current_polygon.push((line.to.x as f64, line.to.y as f64));
         });
     }
     fn close(&mut self) {
@@ -99,6 +97,7 @@ impl OutlineBuilder for GlyphBuilder {
 pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8]) -> Result<(), String> {
     let face = Face::parse(font_data, 0).map_err(|_| "Failed to parse font")?;
     let mut drawing = Drawing::new();
+    drawing.header.version = dxf::enums::AcadVersion::R2010;
     
     // Tag outline (50x25)
     let tag_outline = vec![
@@ -109,7 +108,7 @@ pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8]) -> Result<
     ];
     let mut outline_entity = Entity::new(EntityType::LwPolyline(LwPolyline {
         vertices: tag_outline,
-        is_closed: true,
+        flags: 1,
         ..Default::default()
     }));
     outline_entity.common.layer = "0".to_string();
@@ -124,12 +123,10 @@ pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8]) -> Result<
     circle_entity.common.layer = "0".to_string();
     drawing.add_entity(circle_entity);
     
-    // Text geometry
     let units_per_em = face.units_per_em();
     let text_size = 10.0;
     let scale = text_size / units_per_em as f64;
     
-    // Center it roughly at x=20, y=8
     let mut offset_x = 20.0;
     let offset_y = 8.0;
     
@@ -155,7 +152,7 @@ pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8]) -> Result<
                     }).collect();
                     let mut text_poly = Entity::new(EntityType::LwPolyline(LwPolyline {
                         vertices,
-                        is_closed: true, // Assuming font paths are closed
+                        flags: 1,
                         ..Default::default()
                     }));
                     text_poly.common.layer = "0".to_string();
