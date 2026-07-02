@@ -1,0 +1,15 @@
+[package]
+name = "DXF-Tag-Generator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dxf = "0.6.1"
+eframe = "0.35.0"
+egui = "0.35.0"
+egui_extras = "0.35.0"
+lyon_geom = "1.0.19"
+pdf-extract = "0.12.0"
+regex = "1.12.4"
+rfd = "0.17.2"
+ttf-parser = "0.25.1"
