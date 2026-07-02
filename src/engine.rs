@@ -11,7 +11,9 @@ pub struct PartInfo {
     pub raw_line: String,
     pub part_number: String,
     pub tag_text: String,
+    pub original_tag_text: String,
     pub quantity: u32,
+    pub selected: bool,
 }
 
 pub fn parse_pdf(bytes: &[u8]) -> Result<Vec<PartInfo>, String> {
@@ -35,8 +37,10 @@ pub fn parse_pdf(bytes: &[u8]) -> Result<Vec<PartInfo>, String> {
                 parts.push(PartInfo {
                     raw_line: line.to_string(),
                     part_number,
+                    original_tag_text: tag_text.clone(),
                     tag_text,
                     quantity: qty,
+                    selected: false,
                 });
             }
         }

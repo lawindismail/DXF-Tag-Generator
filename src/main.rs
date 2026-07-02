@@ -16,12 +16,75 @@ struct TagApp {
     parts: Vec<PartInfo>,
     output_dir: Option<PathBuf>,
     status_msg: String,
+    search_query: String,
+    show_math_dialog: bool,
+    math_op: usize, // 0 = Add, 1 = Subtract, 2 = Multiply, 3 = Divide
+    math_val: String,
 }
 
 impl eframe::App for TagApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.set_visuals(egui::Visuals::dark());
+        
+        let mut do_math = false;
+        
+        // Math popup dialog
+        if self.show_math_dialog {
+            egui::Window::new("Batch Modify Quantity")
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_label("Operation")
+                            .selected_text(match self.math_op {
+                                0 => "Add (+)",
+                                1 => "Subtract (-)",
+                                2 => "Multiply (*)",
+                                3 => "Divide (/)",
+                                _ => "",
+                            })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.math_op, 0, "Add (+)");
+                                ui.selectable_value(&mut self.math_op, 1, "Subtract (-)");
+                                ui.selectable_value(&mut self.math_op, 2, "Multiply (*)");
+                                ui.selectable_value(&mut self.math_op, 3, "Divide (/)");
+                            });
+                        
+                        ui.add(egui::TextEdit::singleline(&mut self.math_val).desired_width(50.0));
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        if ui.button("Apply").clicked() {
+                            do_math = true;
+                            self.show_math_dialog = false;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            self.show_math_dialog = false;
+                        }
+                    });
+                });
+        }
+        
+        if do_math {
+            if let Ok(val) = self.math_val.parse::<f64>() {
+                for part in &mut self.parts {
+                    if part.selected {
+                        let cur = part.quantity as f64;
+                        let new_val = match self.math_op {
+                            0 => cur + val,
+                            1 => cur - val,
+                            2 => cur * val,
+                            3 => cur / val,
+                            _ => cur,
+                        };
+                        part.quantity = new_val.max(1.0).round() as u32; // ensure at least 1
+                    }
+                }
+            }
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("DXF Tag Generator");
+            ui.heading("DXF Tag Generator v1.0.1");
             
             ui.horizontal(|ui| {
                 if ui.button("Select DSC PDF").clicked() {
@@ -48,27 +111,98 @@ impl eframe::App for TagApp {
             
             ui.add_space(10.0);
             
+            ui.horizontal(|ui| {
+                ui.label("Search Part Number:");
+                ui.text_edit_singleline(&mut self.search_query);
+                
+                if ui.button("Select All Filters").clicked() {
+                    let q = self.search_query.to_lowercase();
+                    for part in &mut self.parts {
+                        if q.is_empty() || part.part_number.to_lowercase().contains(&q) {
+                            part.selected = true;
+                        }
+                    }
+                }
+                
+                if ui.button("Deselect All").clicked() {
+                    for part in &mut self.parts {
+                        part.selected = false;
+                    }
+                }
+            });
+            
+            ui.add_space(10.0);
+            
             use egui_extras::{TableBuilder, Column};
             
+            // Table
             TableBuilder::new(ui)
                 .striped(true)
                 .resizable(true)
                 .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::initial(200.0).at_least(100.0))
-                .column(Column::initial(100.0))
-                .column(Column::remainder())
+                .column(Column::initial(40.0).at_least(30.0)) // Select
+                .column(Column::initial(200.0).at_least(100.0)) // Part No
+                .column(Column::initial(150.0)) // Tag Text
+                .column(Column::remainder()) // Qty
                 .header(20.0, |mut header| {
+                    header.col(|ui| { ui.strong("Sel"); });
                     header.col(|ui| { ui.strong("Part Number"); });
                     header.col(|ui| { ui.strong("Tag Text"); });
                     header.col(|ui| { ui.strong("Quantity"); });
                 })
                 .body(|mut body| {
-                    for part in &self.parts {
-                        body.row(18.0, |mut row| {
-                            row.col(|ui| { ui.label(&part.part_number); });
-                            row.col(|ui| { ui.label(&part.tag_text); });
-                            row.col(|ui| { ui.label(part.quantity.to_string()); });
+                    let q = self.search_query.to_lowercase();
+                    
+                    let mut show_math = false;
+                    
+                    for part in &mut self.parts {
+                        if !q.is_empty() && !part.part_number.to_lowercase().contains(&q) {
+                            continue;
+                        }
+                        
+                        body.row(25.0, |mut row| {
+                            row.col(|ui| { 
+                                ui.checkbox(&mut part.selected, ""); 
+                            });
+                            row.col(|ui| { 
+                                ui.label(&part.part_number); 
+                            });
+                            row.col(|ui| { 
+                                let modified = part.tag_text != part.original_tag_text;
+                                
+                                let color = if modified {
+                                    egui::Color32::from_rgb(200, 150, 0)
+                                } else {
+                                    ui.visuals().text_color()
+                                };
+                                
+                                let r = ui.add(
+                                    egui::TextEdit::singleline(&mut part.tag_text)
+                                        .text_color(color)
+                                        .desired_width(120.0)
+                                );
+                                
+                                r.context_menu(|ui| {
+                                    if ui.button("Restore Original").clicked() {
+                                        part.tag_text = part.original_tag_text.clone();
+                                        ui.close_menu();
+                                    }
+                                });
+                            });
+                            row.col(|ui| { 
+                                let r = ui.add(egui::DragValue::new(&mut part.quantity).speed(1.0).range(1..=10000));
+                                r.context_menu(|ui| {
+                                    if ui.button("Modify Quantity of Selected").clicked() {
+                                        show_math = true;
+                                        ui.close_menu();
+                                    }
+                                });
+                            });
                         });
+                    }
+                    
+                    if show_math {
+                        self.show_math_dialog = true;
                     }
                 });
             
@@ -114,8 +248,8 @@ impl eframe::App for TagApp {
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([600.0, 500.0])
-            .with_title("DXF Tag Generator"),
+            .with_inner_size([700.0, 600.0])
+            .with_title("DXF Tag Generator v1.0.1"),
         ..Default::default()
     };
     
