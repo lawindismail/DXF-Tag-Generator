@@ -152,6 +152,14 @@ impl eframe::App for TagApp {
                 }
             }
             
+            // Handle Escape
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                for part in &mut self.parts {
+                    part.selected = false;
+                }
+                self.last_clicked_index = None;
+            }
+            
             use egui_extras::{TableBuilder, Column};
             
             let modifiers = ctx.input(|i| i.modifiers);
