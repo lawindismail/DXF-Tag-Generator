@@ -22,6 +22,7 @@ struct TagApp {
     last_clicked_index: Option<usize>,
     drag_is_selecting: Option<bool>,
     dxf_version: String,
+    binary_dxf: bool,
 }
 
 impl Default for TagApp {
@@ -38,6 +39,7 @@ impl Default for TagApp {
             last_clicked_index: None,
             drag_is_selecting: None,
             dxf_version: "R2000".to_string(),
+            binary_dxf: true, // Default to binary DXF based on user feedback
         }
     }
 }
@@ -134,7 +136,7 @@ impl eframe::App for TagApp {
                                 let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
                                 let _ = fs::create_dir_all(&qty_dir);
                                 let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
-                                if engine::generate_dxf(&part.tag_text, &file_path, FONT_DATA, &self.dxf_version).is_ok() {
+                                if engine::generate_dxf(&part.tag_text, &file_path, FONT_DATA, &self.dxf_version, self.binary_dxf).is_ok() {
                                     success += 1;
                                 }
                             }
@@ -152,7 +154,7 @@ impl eframe::App for TagApp {
                             let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
                             let _ = fs::create_dir_all(&qty_dir);
                             let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
-                            if engine::generate_dxf(&part.tag_text, &file_path, FONT_DATA, &self.dxf_version).is_ok() {
+                            if engine::generate_dxf(&part.tag_text, &file_path, FONT_DATA, &self.dxf_version, self.binary_dxf).is_ok() {
                                 success += 1;
                             }
                         }
@@ -174,6 +176,9 @@ impl eframe::App for TagApp {
                         ui.selectable_value(&mut self.dxf_version, "R2010".to_string(), "AutoCAD R2010");
                         ui.selectable_value(&mut self.dxf_version, "R2013".to_string(), "AutoCAD R2013");
                     });
+                
+                ui.separator();
+                ui.checkbox(&mut self.binary_dxf, "Binary DXF");
             });
             
             ui.add_space(10.0);

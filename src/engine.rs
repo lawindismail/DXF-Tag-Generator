@@ -98,7 +98,7 @@ impl OutlineBuilder for GlyphBuilder {
     }
 }
 
-pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8], dxf_version: &str) -> Result<(), String> {
+pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8], dxf_version: &str, export_binary: bool) -> Result<(), String> {
     let face = Face::parse(font_data, 0).map_err(|_| "Failed to parse font")?;
     let mut drawing = Drawing::new();
     
@@ -180,7 +180,12 @@ pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8], dxf_versio
         }
     }
     
-    drawing.save_file(output_path).map_err(|e| e.to_string())?;
+    if export_binary {
+        let mut file = std::fs::File::create(output_path).map_err(|e| e.to_string())?;
+        drawing.save_binary(&mut file).map_err(|e| e.to_string())?;
+    } else {
+        drawing.save_file(output_path).map_err(|e| e.to_string())?;
+    }
+    
     Ok(())
 }
-
