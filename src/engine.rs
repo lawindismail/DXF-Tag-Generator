@@ -98,10 +98,19 @@ impl OutlineBuilder for GlyphBuilder {
     }
 }
 
-pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8]) -> Result<(), String> {
+pub fn generate_dxf(text: &str, output_path: &Path, font_data: &[u8], dxf_version: &str) -> Result<(), String> {
     let face = Face::parse(font_data, 0).map_err(|_| "Failed to parse font")?;
     let mut drawing = Drawing::new();
-    drawing.header.version = dxf::enums::AcadVersion::R2010;
+    
+    drawing.header.version = match dxf_version {
+        "R14" => dxf::enums::AcadVersion::R14,
+        "R2000" => dxf::enums::AcadVersion::R2000,
+        "R2004" => dxf::enums::AcadVersion::R2004,
+        "R2007" => dxf::enums::AcadVersion::R2007,
+        "R2010" => dxf::enums::AcadVersion::R2010,
+        "R2013" => dxf::enums::AcadVersion::R2013,
+        _ => dxf::enums::AcadVersion::R2000, // Safe universal fallback
+    };
     
     // Tag outline (50x25)
     let tag_outline = vec![

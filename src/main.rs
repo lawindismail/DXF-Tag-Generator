@@ -10,7 +10,6 @@ use std::fs;
 
 const FONT_DATA: &[u8] = include_bytes!("../SairaStencilOne-Regular.ttf");
 
-#[derive(Default)]
 struct TagApp {
     pdf_path: Option<PathBuf>,
     parts: Vec<PartInfo>,
@@ -22,6 +21,25 @@ struct TagApp {
     math_val: String,
     last_clicked_index: Option<usize>,
     drag_is_selecting: Option<bool>,
+    dxf_version: String,
+}
+
+impl Default for TagApp {
+    fn default() -> Self {
+        Self {
+            pdf_path: None,
+            parts: Vec::new(),
+            output_dir: None,
+            status_msg: String::new(),
+            search_query: String::new(),
+            show_math_dialog: false,
+            math_op: 0,
+            math_val: String::new(),
+            last_clicked_index: None,
+            drag_is_selecting: None,
+            dxf_version: "R2000".to_string(),
+        }
+    }
 }
 
 impl eframe::App for TagApp {
@@ -116,7 +134,7 @@ impl eframe::App for TagApp {
                                 let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
                                 let _ = fs::create_dir_all(&qty_dir);
                                 let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
-                                if generate_dxf(&part.tag_text, &file_path, FONT_DATA).is_ok() {
+                                if engine::generate_dxf(&part.tag_text, &file_path, FONT_DATA, &self.dxf_version).is_ok() {
                                     success += 1;
                                 }
                             }
@@ -134,7 +152,7 @@ impl eframe::App for TagApp {
                             let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
                             let _ = fs::create_dir_all(&qty_dir);
                             let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
-                            if generate_dxf(&part.tag_text, &file_path, FONT_DATA).is_ok() {
+                            if engine::generate_dxf(&part.tag_text, &file_path, FONT_DATA, &self.dxf_version).is_ok() {
                                 success += 1;
                             }
                         }
@@ -143,6 +161,19 @@ impl eframe::App for TagApp {
                         self.status_msg = "Please select an output directory first.".to_string();
                     }
                 }
+                
+                ui.separator();
+                
+                egui::ComboBox::from_label("DXF Version")
+                    .selected_text(&self.dxf_version)
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.dxf_version, "R14".to_string(), "AutoCAD R14");
+                        ui.selectable_value(&mut self.dxf_version, "R2000".to_string(), "AutoCAD R2000 (Recommended)");
+                        ui.selectable_value(&mut self.dxf_version, "R2004".to_string(), "AutoCAD R2004");
+                        ui.selectable_value(&mut self.dxf_version, "R2007".to_string(), "AutoCAD R2007");
+                        ui.selectable_value(&mut self.dxf_version, "R2010".to_string(), "AutoCAD R2010");
+                        ui.selectable_value(&mut self.dxf_version, "R2013".to_string(), "AutoCAD R2013");
+                    });
             });
             
             ui.add_space(10.0);
