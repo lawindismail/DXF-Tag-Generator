@@ -90,6 +90,66 @@ impl eframe::App for TagApp {
             self.drag_is_selecting = None;
         }
 
+        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
+            ui.add_space(10.0);
+            
+            ui.horizontal(|ui| {
+                if ui.button("Select Output Directory").clicked() {
+                    if let Some(path) = FileDialog::new().pick_folder() {
+                        self.output_dir = Some(path);
+                    }
+                }
+                
+                if let Some(path) = &self.output_dir {
+                    ui.label(path.to_string_lossy());
+                }
+            });
+            
+            ui.add_space(10.0);
+            
+            ui.horizontal(|ui| {
+                if ui.button("Generate Selected Tags").clicked() {
+                    if let Some(out_dir) = &self.output_dir {
+                        let mut success = 0;
+                        for part in &self.parts {
+                            if part.selected {
+                                let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
+                                let _ = fs::create_dir_all(&qty_dir);
+                                let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
+                                if generate_dxf(&part.tag_text, &file_path, FONT_DATA).is_ok() {
+                                    success += 1;
+                                }
+                            }
+                        }
+                        self.status_msg = format!("Generated {} selected tags successfully!", success);
+                    } else {
+                        self.status_msg = "Please select an output directory first.".to_string();
+                    }
+                }
+                
+                if ui.button("Generate All Tags").clicked() {
+                    if let Some(out_dir) = &self.output_dir {
+                        let mut success = 0;
+                        for part in &self.parts {
+                            let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
+                            let _ = fs::create_dir_all(&qty_dir);
+                            let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
+                            if generate_dxf(&part.tag_text, &file_path, FONT_DATA).is_ok() {
+                                success += 1;
+                            }
+                        }
+                        self.status_msg = format!("Generated {} tags successfully!", success);
+                    } else {
+                        self.status_msg = "Please select an output directory first.".to_string();
+                    }
+                }
+            });
+            
+            ui.add_space(10.0);
+            ui.label(&self.status_msg);
+            ui.add_space(10.0);
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("DXF Tag Generator v1.0.1");
             
@@ -314,62 +374,6 @@ impl eframe::App for TagApp {
                 }
             }
             
-            ui.add_space(10.0);
-            
-            ui.horizontal(|ui| {
-                if ui.button("Select Output Directory").clicked() {
-                    if let Some(path) = FileDialog::new().pick_folder() {
-                        self.output_dir = Some(path);
-                    }
-                }
-                
-                if let Some(path) = &self.output_dir {
-                    ui.label(path.to_string_lossy());
-                }
-            });
-            
-            ui.add_space(10.0);
-            
-            ui.horizontal(|ui| {
-                if ui.button("Generate Selected Tags").clicked() {
-                    if let Some(out_dir) = &self.output_dir {
-                        let mut success = 0;
-                        for part in &self.parts {
-                            if part.selected {
-                                let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
-                                let _ = fs::create_dir_all(&qty_dir);
-                                let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
-                                if generate_dxf(&part.tag_text, &file_path, FONT_DATA).is_ok() {
-                                    success += 1;
-                                }
-                            }
-                        }
-                        self.status_msg = format!("Generated {} selected tags successfully!", success);
-                    } else {
-                        self.status_msg = "Please select an output directory first.".to_string();
-                    }
-                }
-                
-                if ui.button("Generate All Tags").clicked() {
-                    if let Some(out_dir) = &self.output_dir {
-                        let mut success = 0;
-                        for part in &self.parts {
-                            let qty_dir = out_dir.join(format!("qty_{}", part.quantity));
-                            let _ = fs::create_dir_all(&qty_dir);
-                            let file_path = qty_dir.join(format!("{}.dxf", part.tag_text));
-                            if generate_dxf(&part.tag_text, &file_path, FONT_DATA).is_ok() {
-                                success += 1;
-                            }
-                        }
-                        self.status_msg = format!("Generated {} tags successfully!", success);
-                    } else {
-                        self.status_msg = "Please select an output directory first.".to_string();
-                    }
-                }
-            });
-            
-            ui.add_space(10.0);
-            ui.label(&self.status_msg);
         });
     }
 }
